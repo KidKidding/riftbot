@@ -101,6 +101,10 @@ async def on_message_edit(before, after):
 async def on_message_delete(message):
 	# if original message is ever deleted, free memory
 	if message.id in direct_message:
+		# delete webhook messages too
+		for webhook_message in direct_message[message.id]:
+			await webhook_message.delete()
+
 		del direct_message[message.id]
 
 @client.event
