@@ -15,6 +15,11 @@ seconds = 3600
 # Example: direct[123] = [124, 125]
 # ^ This will copy entries from channel 123 and paste it in 124 and 125.
 direct = dict()
+# Know which message is linked in direct.
+# Example message[871] = [782, 873]
+# ^ Those ids will be affected by the original message
+# ^ such as editing the message or deleting it
+direct_message = dict()
 
 
 async def get_webhook(channel):
@@ -23,7 +28,7 @@ async def get_webhook(channel):
 	for webhook in webhooks:
 		if webhook.name == 'Rift':
 			return webhook
-	
+
 	return await channel.create_webhook(name = 'Rift')
 
 
@@ -50,12 +55,19 @@ async def on_message(message):
 			channel = client.get_channel(forward)
 			webhook = await get_webhook(channel)
 
-			await webhook.send(
+			webhook_message = await webhook.send(
 				content = message.content,
 				username = author,
 				avatar_url = message.author.avatar_url,
 				embeds = message.embeds
 			)
+
+			# possibly webhook message couldn't be sent
+			if webhook_message:
+				if message.id in direct_message:
+					direct_message[message.id].append(webhook_message)
+				else:
+					direct_message[message.id] = [webhook_message]
 
 			for attachment in message.attachments:
 				await webhook.send(
@@ -73,7 +85,27 @@ async def on_message(message):
 		backup = "[" + date + "] [" + message.guild.name + "] [" + message.channel.name + "] [" + author + "] " +  message.content + '\n'
 		with open("backup.txt", "a+") as f: f.write(backup)
 
+@client.event
+async def on_message_edit(before, after):
+	if not after.message.id in direct_message:
+		return
 
+	# update webhook content according to original message
+	for webhook_message in direct_message[after.message.id]:
+		await webhook_message.edit(
+				content = after.content,
+				embeds = after.embeds
+			)
+
+@client.event
+async def on_message_delete(message):
+	# if original message is ever deleted, free memory
+	if message.id in direct_message:
+		# delete webhook messages too
+		for webhook_message in direct_message[message.id]:
+			await webhook_message.delete()
+
+		del direct_message[message.id]
 
 @client.event
 async def on_ready():
