@@ -34,7 +34,10 @@ async def on_message(message):
 		return
 
 	if message.webhook_id != None:
-		await message.delete(delay=seconds)
+		# check our webhook before to delete message
+		webhook = await get_webhook(message.channel)
+		if webhook and webhook.id == message.webhook_id:
+			await message.delete(delay=seconds)
 		return
 
 	if message.channel.id in direct:
@@ -60,7 +63,7 @@ async def on_message(message):
 					username = author,
 					avatar_url = message.author.avatar_url,
 				)
-				
+
 
 			# await channel.send(content, delete_after=seconds)
 
