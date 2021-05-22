@@ -93,7 +93,7 @@ async def on_message(message):
 
 @client.event
 async def on_message_edit(before, after):
-	if not after.id in direct_message:
+	if after.webhook_id or not after.id in direct_message:
 		return
 
 	# update webhook content according to original message
