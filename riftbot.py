@@ -58,12 +58,16 @@ async def on_message(message):
 			channel = client.get_channel(forward)
 			webhook = await get_webhook(channel)
 
+			# get files from message
+			files = [await attach.to_file(spoiler = attach.is_spoiler()) for attach in message.attachments]
+
 			webhook_message = await webhook.send(
 				wait = True,
 				content = message.content,
 				username = author,
 				avatar_url = message.author.avatar_url,
-				embeds = message.embeds
+				embeds = message.embeds,
+				files = files
 			)
 
 			# possibly webhook message couldn't be sent
@@ -75,14 +79,6 @@ async def on_message(message):
 
 				direct_message[webhook_message.id] = message.id
 
-			for attachment in message.attachments:
-				await webhook.send(
-					content = attachment.url,
-					username = author,
-					avatar_url = message.author.avatar_url,
-				)
-
-
 			# await channel.send(content, delete_after=seconds)
 
 		await message.delete(delay=seconds)
@@ -93,7 +89,7 @@ async def on_message(message):
 
 @client.event
 async def on_message_edit(before, after):
-	if not after.id in direct_message:
+	if after.webhook_id or not after.id in direct_message:
 		return
 
 	# update webhook content according to original message
