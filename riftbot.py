@@ -56,6 +56,7 @@ async def on_message(message):
 			webhook = await get_webhook(channel)
 
 			webhook_message = await webhook.send(
+				wait = True,
 				content = message.content,
 				username = author,
 				avatar_url = message.author.avatar_url,
@@ -87,11 +88,11 @@ async def on_message(message):
 
 @client.event
 async def on_message_edit(before, after):
-	if not after.message.id in direct_message:
+	if not after.id in direct_message:
 		return
 
 	# update webhook content according to original message
-	for webhook_message in direct_message[after.message.id]:
+	for webhook_message in direct_message[after.id]:
 		await webhook_message.edit(
 				content = after.content,
 				embeds = after.embeds
