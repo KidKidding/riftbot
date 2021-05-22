@@ -16,9 +16,12 @@ seconds = 3600
 # ^ This will copy entries from channel 123 and paste it in 124 and 125.
 direct = dict()
 # Know which message is linked in direct.
-# Example message[871] = [782, 873]
+# Example direct_message[871] = [782, 873]
 # ^ Those ids will be affected by the original message
 # ^ such as editing the message or deleting it
+# Also it is used to track webhook message ids to original message
+# Example direct_message[233] = 112
+# Also keep in mind that discord IDs are unique-ish, thus it must be safe
 direct_message = dict()
 
 
@@ -70,6 +73,8 @@ async def on_message(message):
 				else:
 					direct_message[message.id] = [webhook_message]
 
+				direct_message[webhook_message.id] = message.id
+
 			for attachment in message.attachments:
 				await webhook.send(
 					content = attachment.url,
@@ -101,12 +106,23 @@ async def on_message_edit(before, after):
 @client.event
 async def on_message_delete(message):
 	# if original message is ever deleted, free memory
-	if message.id in direct_message:
-		# delete webhook messages too
-		for webhook_message in direct_message[message.id]:
-			await webhook_message.delete()
+	if not message.id in direct_message:
+		return
 
-		del direct_message[message.id]
+	value = direct_message[message.id]
+	del direct_message[message.id]
+
+	if message.webhook_id:
+		webhook_messages = direct_message[value]
+		for i, webhook_message in enumerate(webhook_messages):
+			if webhook_message.id == message.id:
+				del webhook_messages[i]
+				break
+	else:
+		# delete webhook messages too
+		for webhook_message in value:
+			del direct_message[webhook_message.id]
+			await webhook_message.delete()		
 
 @client.event
 async def on_ready():
