@@ -56,21 +56,24 @@ async def on_message(message):
 
 		content = "**" + author + "**: " + message.content
 
+		# get files from message
+		files = [await attach.to_file(spoiler = attach.is_spoiler()) for attach in message.attachments]
+
+		# cache webhook message initialization
+		webhook_message_dict = {
+			'wait': True,
+			'content': message.content,
+			'username': author,
+			'avatar_url': message.author.avatar_url,
+			'embeds': [] if check_gif_url(message.content) else message.embeds,
+			'files': files
+		}
+
 		for forward in direct[message.channel.id]:
 			channel = client.get_channel(forward)
 			webhook = await get_webhook(channel)
 
-			# get files from message
-			files = [await attach.to_file(spoiler = attach.is_spoiler()) for attach in message.attachments]
-
-			webhook_message = await webhook.send(
-				wait = True,
-				content = message.content,
-				username = author,
-				avatar_url = message.author.avatar_url,
-				embeds = [] if check_gif_url(message.content) else message.embeds,
-				files = files
-			)
+			webhook_message = await webhook.send(**webhook_message_dict)
 
 			# possibly webhook message couldn't be sent
 			if webhook_message:
