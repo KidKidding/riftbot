@@ -56,6 +56,7 @@ async def on_message(message):
 			webhook = await get_webhook(channel)
 
 			webhook_message = await webhook.send(
+				wait = True,
 				content = message.content,
 				username = author,
 				avatar_url = message.author.avatar_url,
