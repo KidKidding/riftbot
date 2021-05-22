@@ -34,6 +34,8 @@ async def get_webhook(channel):
 
 	return await channel.create_webhook(name = 'Rift')
 
+def check_gif_url(content):
+	return content.startswith('https://tenor.com/view/') or content.startswith('http://tenor.com/view/')
 
 @client.event
 async def on_message(message):
@@ -66,7 +68,7 @@ async def on_message(message):
 				content = message.content,
 				username = author,
 				avatar_url = message.author.avatar_url,
-				embeds = message.embeds,
+				embeds = [] if check_gif_url(message.content) else message.embeds,
 				files = files
 			)
 
@@ -96,7 +98,7 @@ async def on_message_edit(before, after):
 	for webhook_message in direct_message[after.id]:
 		await webhook_message.edit(
 				content = after.content,
-				embeds = after.embeds
+				embeds = [] if check_gif_url(after.content) else after.embeds
 			)
 
 @client.event
