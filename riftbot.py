@@ -72,7 +72,7 @@ class WebMessage:
 					await asyncio.sleep(fields['delay'])
 					await self.__webhook.delete_message(self.__id)	
 
-				asyncio.run_until_complete(dd)
+				asyncio.ensure_future(dd())
 			else:
 				await self.__webhook.delete_message(self.__id)
 
