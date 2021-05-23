@@ -28,6 +28,11 @@ direct = dict()
 # Example direct_message[233] = 112
 # Also keep in mind that discord IDs are unique-ish, thus it must be safe
 direct_message = dict()
+# A tuple that contains two related data set, indicate below:
+#  1.-A set to indicate that given message id will be loaded in direct_message
+#  2.-A list of tasks to do [ function to run ], once that id has been
+#     loaded in direct_message
+lazy_direct_message = (set(), list())
 
 # A wrapper about webhook messages, mainly it can be initialized as 
 # webhook and given id or webhook message instead, in this way
@@ -121,6 +126,8 @@ async def _load_direct_message():
 	with open(CACHE_MESSAGE_NAME, 'r') as file:
 		data = json.load(file)
 
+	lazy_direct_message[0].update([int(id) for id in data.keys()])
+
 	# Fetch messages for better performance in large cached message list
 	# this links IDs to messages, if message was deleted then it shouldn't
 	# be in dict
@@ -153,6 +160,12 @@ async def _load_direct_message():
 		# link webhook message ids with original message id again
 		for webhook_message in webhook_messages:
 			direct_message[webhook_message.id] = id
+
+	lazy_direct_message[0].clear()
+	for task in lazy_direct_message[1]:
+		asyncio.ensure_future(task())
+	lazy_direct_message[1].clear()
+
 
 def _save_direct_message():
 	# Save cache messages into file
@@ -235,6 +248,12 @@ async def on_message(message):
 @client.event
 async def on_message_edit(_ignored_, message):
 	if message.webhook_id or not message.id in direct_message:
+		if message.id in lazy_direct_message[0]:
+			async def _fedit():
+				await on_message_edit(None, message)
+
+			lazy_direct_message[1].append(_fedit)
+
 		return
 
 	# update webhook content according to original message
@@ -263,6 +282,11 @@ async def on_raw_message_edit(payload):
 async def on_message_delete(message):
 	# if original message is ever deleted, free memory
 	if not message.id in direct_message:
+		if message.id in lazy_direct_message[0]:
+			async def _fdelete():
+				await on_message_delete(message)
+
+			lazy_direct_message[1].append(_fdelete)
 		return
 
 	value = direct_message[message.id]
