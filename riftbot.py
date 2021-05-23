@@ -131,6 +131,25 @@ async def on_ready():
 	for server in client.guilds:
 		print("[" + str(server.id) + "] Server: " + server.name)
 
+	# this is retrive a similar date to fetch previous message
+	# as operation below might take some time
+	#
+	# Alert: time should be UTC due that discord date is in UTC
+	#        otherwise this piece of code wouldn't work as expected
+	actual_time = datetime.datetime.utcnow()
+
+	for channel_id in direct:
+		channel = client.get_channel(channel_id)
+
+		# if that channel doesn't exist or bot is not 
+		# in that guild anymore
+		if not channel:
+			continue
+
+		async for message in channel.history(limit=None):
+			# check how much time that message has left
+			delay = seconds - (actual_time - message.created_at).total_seconds()
+			await message.delete(delay=max(delay, 0))
 
 
 @client.event
