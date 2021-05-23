@@ -16,10 +16,10 @@ seconds = 3600
 # ^ This will copy entries from channel 123 and paste it in 124 and 125.
 direct = dict()
 # Know which message is linked in direct.
-# Example direct_message[871] = [782, 873]
-# ^ Those ids will be affected by the original message
+# Example direct_message[871] = [<webhook obj 1>, <webhook obj 2>, <...>]
+# ^ Those webhook messages will be affected by the original message
 # ^ such as editing the message or deleting it
-# Also it is used to track webhook message ids to original message
+# Also it is used to track webhook message ids to original message id
 # Example direct_message[233] = 112
 # Also keep in mind that discord IDs are unique-ish, thus it must be safe
 direct_message = dict()
