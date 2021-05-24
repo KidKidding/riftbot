@@ -188,15 +188,7 @@ def _save_direct_message():
 
 @client.event
 async def on_message(message):
-	if message.author == client.user:
-		print(message.webhook_id)
-		return
-
-	if message.webhook_id != None:
-		# check our webhook before to delete message
-		webhook = await get_webhook(message.channel)
-		if webhook and webhook.id == message.webhook_id:
-			await message.delete(delay=seconds)
+	if message.author == client.user or message.webhook_id:
 		return
 
 	if message.channel.id in direct:
@@ -346,6 +338,11 @@ async def on_ready():
 			continue
 
 		async for message in channel.history(limit=None):
+			# we are just interest in original messages instead of
+			# webhook messages, except if they are not linked
+			if message.webhook_id and message.id in direct_message:
+				continue
+
 			# check how much time that message has left
 			delay = seconds - (actual_time - message.created_at).total_seconds()
 			await message.delete(delay=max(delay, 0))
