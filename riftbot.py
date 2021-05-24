@@ -21,7 +21,9 @@ GIF_URLS = [
 	'https://tenor.com/view/',
 	'http://tenor.com/view/',
 	'https://c.tenor.com/',
-	'http://c.tenor.com/'
+	'http://c.tenor.com/',
+	'https://giphy.com/gifs/',
+	'http://giphy.com/gifs/'
 ]
 
 # Insert here the channels to link.
