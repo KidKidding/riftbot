@@ -104,22 +104,18 @@ async def _load_direct_message():
 		webhooks[webhook.id] = webhook
 
 	# return a dict of message ID linking to webhook ID if exists
-	async def fetch_messages(ids: list):
+	async def fetch_messages(ids: set):
 		id_dict = dict()
 
 		for channel in channels:
-			deleted_size = 0
-			for i, id in enumerate(ids):
-				try:
-					id_dict[id] = await channel.fetch_message(id)
+			async for message in channel.history(limit=None):
+				if len(ids) == 0:
+					break
+				if not message.id in ids:
+					continue
 
-					del ids[i - deleted_size]
-					deleted_size += 1
-
-					if len(ids) == 0:
-						return id_dict
-				except discord.errors.NotFound:
-					pass
+				id_dict[message.id] = message
+				ids.remove(message.id)
 
 		return id_dict
 
@@ -132,9 +128,9 @@ async def _load_direct_message():
 	# this links IDs to messages, if message was deleted then it shouldn't
 	# be in dict
 
-	ids = []
+	ids = set()
 	for id, value in data.items():
-		ids += [int(id)] + value
+		ids.update([int(id)] + value)
 
 	cache_messages = await fetch_messages(ids)
 
