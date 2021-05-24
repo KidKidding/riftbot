@@ -343,9 +343,15 @@ async def on_ready():
 			if message.webhook_id and message.id in direct_message:
 				continue
 
-			# check how much time that message has left
-			delay = seconds - (actual_time - message.created_at).total_seconds()
-			await message.delete(delay=max(delay, 0))
+			# delete webhook messages instantly due that original message
+			# wasn't found otherwise these webhook messages would in
+			# direct_message too
+			if message.webhook_id:
+				await message.delete()
+			else:
+				# check how much time that message has left
+				delay = seconds - (actual_time - message.created_at).total_seconds()
+				await message.delete(delay=max(delay, 0))
 
 	print('Done!')
 
