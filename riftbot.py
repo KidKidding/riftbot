@@ -16,6 +16,14 @@ seconds = 3600
 # The direct_message cache file name
 CACHE_MESSAGE_NAME = 'cm.dat'
 
+# Gif URLs that Discord manually embed as gif
+GIF_URLS = [
+	'https://tenor.com/view/',
+	'http://tenor.com/view/',
+	'https://c.tenor.com/',
+	'http://c.tenor.com/'
+]
+
 # Insert here the channels to link.
 # Example: direct[123] = [124, 125]
 # ^ This will copy entries from channel 123 and paste it in 124 and 125.
@@ -88,7 +96,11 @@ async def get_webhook(channel):
 	return await channel.create_webhook(name = 'Rift')
 
 def check_gif_url(content):
-	return content.startswith('https://tenor.com/view/') or content.startswith('http://tenor.com/view/')
+	for url in GIF_URLS:
+		if content.startswith(url):
+			return True
+
+	return False
 
 async def _load_direct_message():
 	# Restore cache messages from file
