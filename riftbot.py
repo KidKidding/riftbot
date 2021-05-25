@@ -4,6 +4,7 @@ import datetime
 import os
 import json
 import re
+import io
 
 
 client = discord.Client()
