@@ -45,18 +45,37 @@ lazy_direct_message = (set(), list())
 # we can abstract in a layer to avoid that in other code places have to deal
 # with this issue
 class WebMessage:
-	def __init__(self, *data):
+	def __init__(self, *data, reply=False):
+		self.reply = reply
+
 		if len(data) == 2:
 			self.__webhook = data[0]
 			self.__id = data[1]
 			self.__webhook_message = None
+			self.__message = None
 		elif len(data) == 1:
 			self.__webhook_message = data[0]
+			self.__message = data[0]
 		else:
 			raise Exception(f'Invalid initialization {data}')
 
 	def id(self):
 		return self.__webhook_message.id if self.__webhook_message else self.__id
+
+	# return channel that is this message
+	def channel(self):
+		return self.__webhook_message.channel if self.__webhook_message else self.__webhook.channel
+
+	# resolve message or None if it couldn't be found
+	async def message(self):
+		if self.__message is not None:
+			return self.__message
+
+		try:
+			self.__message = await self.__webhook.channel.fetch_message(self.__id)
+			return self.__message
+		except discord.errors.NotFound:
+			return None
 
 	async def edit(self, **fields):
 		if self.__webhook_message:
@@ -95,6 +114,18 @@ async def get_webhook(channel):
 
 def check_gif_url(content):
 	return re.match(GIF_REGEX, content) is not None
+
+def get_direct_message(id, default=None):
+	value = direct_message.get(id, default)	
+	return direct_message[value] if isinstance(value, int) else value
+
+def short_reply_content(content):
+	size = len(content)
+	short = content[0 : min(size, 17)]
+
+	# add "..." at the end if message is large
+	# than 17 characters
+	return short + '...' if size > 17 else short
 
 async def _load_direct_message():
 	# Restore cache messages from file
@@ -199,6 +230,7 @@ async def on_message(message):
 
 	if message.channel.id in direct:
 		author = message.author.display_name
+		avatar_url = message.author.avatar_url
 
 		# get files from message
 		raw_files = [(await attach.read(), attach) for attach in message.attachments]
@@ -208,14 +240,64 @@ async def on_message(message):
 			'wait': True,
 			'content': message.content,
 			'username': author,
-			'avatar_url': message.author.avatar_url,
+			'avatar_url': avatar_url,
 			'embeds': [] if check_gif_url(message.content) else message.embeds,
 			'allowed_mentions': discord.AllowedMentions(everyone=False, roles=False)
 		}
 
+		reference = message.reference
+		webhook_reply_dict = None
+
+		if reference is not None:
+			reference_message = reference.cached_message
+			if reference_message is None:
+				reference_channel = client.get_channel(reference.channel_id)
+				reference_message = await reference_channel.fetch_message(reference.message_id)
+
+			rcontent = reference_message.content if reference_message is not None else '*Reply not found*'
+			rauthor = reference_message.author
+
+			webhook_reply_content = short_reply_content(rcontent)
+
+			webhook_reply_dict = {
+				'wait': True,
+				'username': author,
+				'avatar_url': avatar_url,
+				'allowed_mentions': discord.AllowedMentions.none()
+			}
+
+			reference_message_list = get_direct_message(reference.message_id, list())
+
 		for forward in direct[message.channel.id]:
 			channel = client.get_channel(forward)
 			webhook = await get_webhook(channel)
+
+			# initialize webhook message reply as None
+			webhook_message_reply = None
+
+			# send webhook message reply before than user message
+			if webhook_reply_dict is not None:
+				webhook_message_reply = await webhook.send(
+					**webhook_reply_dict,
+					content = f'> {rauthor.mention}: {webhook_reply_content}'
+				)
+
+				# webhook message reply couldn't be sent
+				if webhook_message_reply is not None:
+					# the point of this is to link another webhook message
+					# into list of some message JUST if that message is being
+					# tracked in direct_message otherwise don't create and
+					# insert a new list but instead set delay time to avoid
+					# that webhook message reply won't be deleted
+
+					if reference.message_id in direct_message:
+						web_message = WebMessage(webhook_message_reply, reply=True)
+						get_direct_message(reference.message_id).append(web_message)
+						direct_message[webhook_message_reply.id] = reference.message_id
+					else:
+						# delete webhook message reply because it is not being
+						# tracked in any message
+						await webhook_message_reply.delete(delay=seconds)
 
 			files = [
 				discord.File(
@@ -230,6 +312,13 @@ async def on_message(message):
 			# possibly webhook message couldn't be sent
 			if webhook_message is not None:
 				direct_message.setdefault(message.id, list()).append(WebMessage(webhook_message))
+
+				# append webhook message reply to that message
+				# because message created that reply
+				if webhook_message_reply is not None:
+					direct_message[message.id].append(WebMessage(webhook_message_reply, reply=True))
+
+				# assign which is original message id in webhook message
 				direct_message[webhook_message.id] = message.id
 
 		await message.delete(delay=seconds)
@@ -251,7 +340,25 @@ async def on_message_edit(_ignored_, message):
 
 	# update webhook content according to original message
 	for webhook_message in direct_message[message.id]:
-		await webhook_message.edit(
+		if webhook_message.reply:
+			# short the new content
+			short_content = short_reply_content(message.content)
+
+			# recover user mention to message that was replied
+			# because reply format is `> {mention}: {message}`
+			# so we'd be finding the first : in that format
+			# but if message couldn't be found, show `*error*` instead
+
+			resolved_webhook_message = await webhook_message.message()
+			if resolved_webhook_message is not None:
+				resolved_content = resolved_webhook_message.content
+				content = f"> {resolved_content[0:resolved_content.find(':')]}: {short_content}"
+			else:
+				content = f'> *error*: {short_content}'
+
+			await webhook_message.edit(content = content)
+		else:
+			await webhook_message.edit(
 				content = message.content,
 				embeds = [] if check_gif_url(message.content) else message.embeds
 			)
@@ -288,7 +395,7 @@ async def on_message_delete(message):
 	# int values indicate that is a webhook message linking to
 	# a normal message
 	if isinstance(value, int):
-		webhook_messages = direct_message[value]
+		webhook_messages = direct_message.get(value, list())
 		for i, webhook_message in enumerate(webhook_messages):
 			if webhook_message.id == message.id:
 				del webhook_messages[i]
@@ -296,8 +403,13 @@ async def on_message_delete(message):
 	else:
 		# delete webhook messages too
 		for webhook_message in value:
-			del direct_message[webhook_message.id()]
-			await webhook_message.delete()
+			direct_message.pop(webhook_message.id(), None)
+
+			try:
+				await webhook_message.delete()
+			except discord.errors.NotFound:
+				# it could be a reply, therefore it may be removed before
+				pass
 
 # This event is to track messages that aren't in cached messages in bot
 # too, similar to on_raw_message_edit but now on raw message delete
