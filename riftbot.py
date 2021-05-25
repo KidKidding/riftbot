@@ -200,8 +200,6 @@ async def on_message(message):
 	if message.channel.id in direct:
 		author = message.author.display_name
 
-		#content = "**" + author + "**: " + message.content
-
 		# get files from message
 		raw_files = [(await attach.read(), attach) for attach in message.attachments]
 
@@ -237,8 +235,6 @@ async def on_message(message):
 					direct_message[message.id] = [WebMessage(webhook_message)]
 
 				direct_message[webhook_message.id] = message.id
-
-			# await channel.send(content, delete_after=seconds)
 
 		await message.delete(delay=seconds)
 
