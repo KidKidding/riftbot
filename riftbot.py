@@ -196,10 +196,9 @@ async def on_message(message):
 		return
 
 	if message.channel.id in direct:
-		if message.author.nick == None: author = message.author.name
-		else: author = message.author.nick
+		author = message.author.display_name
 
-		content = "**" + author + "**: " + message.content
+		#content = "**" + author + "**: " + message.content
 
 		# get files from message
 		files = [await attach.to_file(spoiler = attach.is_spoiler()) for attach in message.attachments]
