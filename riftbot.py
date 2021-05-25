@@ -228,12 +228,8 @@ async def on_message(message):
 			webhook_message = await webhook.send(**webhook_message_dict, files=files)
 
 			# possibly webhook message couldn't be sent
-			if webhook_message:
-				if message.id in direct_message:
-					direct_message[message.id].append(WebMessage(webhook_message))
-				else:
-					direct_message[message.id] = [WebMessage(webhook_message)]
-
+			if webhook_message is not None:
+				direct_message.setdefault(message.id, list()).append(WebMessage(webhook_message))
 				direct_message[webhook_message.id] = message.id
 
 		await message.delete(delay=seconds)
