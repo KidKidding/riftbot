@@ -5,6 +5,7 @@ import os
 import json
 import re
 import io
+import sys
 
 
 client = discord.Client()
@@ -376,6 +377,19 @@ async def on_disconnect():
 	# we should save direct messages due that when be ready again
 	# it'd be reading the previous file with old data
 	_save_direct_message()
+
+if os.path.isfile(CACHE_MESSAGE_NAME):
+	# Check json before to run bot
+	with open(CACHE_MESSAGE_NAME, 'r') as file:
+		try:
+			data = json.load(file)
+		except json.decoder.JSONDecodeError as error:
+			# json is bad formatted
+			# possibly it didn't save correctly or it was
+			# editted by someone that forgot some things
+			print(f'Error while loading {CACHE_MESSAGE_NAME} file: {error}', file=sys.stderr)
+			# Exit to avoid that file override or delete itself
+			exit(0)
 
 client.run(DISCORDTOKEN)
 
