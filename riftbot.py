@@ -210,7 +210,8 @@ async def on_message(message):
 			'content': message.content,
 			'username': author,
 			'avatar_url': message.author.avatar_url,
-			'embeds': [] if check_gif_url(message.content) else message.embeds
+			'embeds': [] if check_gif_url(message.content) else message.embeds,
+			'allowed_mentions': discord.AllowedMentions(everyone=False, roles=False)
 		}
 
 		for forward in direct[message.channel.id]:
