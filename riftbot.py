@@ -356,7 +356,10 @@ async def on_message_edit(_ignored_, message):
 			else:
 				content = f'> *error*: {short_content}'
 
-			await webhook_message.edit(content = content)
+			await webhook_message.edit(
+				content = content,
+				allowed_mentions = discord.AllowedMentions.none()
+			)
 		else:
 			await webhook_message.edit(
 				content = message.content,
