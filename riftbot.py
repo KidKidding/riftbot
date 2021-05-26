@@ -122,9 +122,17 @@ async def get_webhook(channel):
 def check_gif_url(content):
 	return re.match(GIF_REGEX, content) is not None
 
-def get_direct_message(id, default=None):
-	value = direct_message.get(id, default)	
-	return direct_message[value] if isinstance(value, int) else value
+def get_reply_direct(id):
+	value = direct_message.get(id)
+	if value is None or not isinstance(value, int):
+		return None
+
+	message_list = direct_message[value]
+	for message in message_list:
+		if message.id() == id:
+			return message if message.reply != WebMessage.NO_REPLY else None
+
+	return None
 
 def short_reply_content(content):
 	size = len(content)
@@ -274,21 +282,29 @@ async def on_message(message):
 			reference_message = reference.cached_message
 			if reference_message is None:
 				reference_channel = client.get_channel(reference.channel_id)
-				reference_message = await reference_channel.fetch_message(reference.message_id)
+				try:
+					reference_message = await reference_channel.fetch_message(reference.message_id)
+				except discord.errors.NotFound:
+					# it could be deleted just in time when message was sent
+					reference_message = None
 
-			rcontent = reference_message.content if reference_message is not None else '*Reply not found*'
-			rauthor = reference_message.author
+			if reference_message is not None:
+				rcontent = reference_message.content
 
-			webhook_reply_content = short_reply_content(rcontent)
+				# check if reference is reply, to avoid applying reply format again
+				# otherwise apply it
 
-			webhook_reply_dict = {
-				'wait': True,
-				'username': author,
-				'avatar_url': avatar_url,
-				'allowed_mentions': discord.AllowedMentions.none()
-			}
+				web_reply = get_reply_direct(reference.message_id)
+				if web_reply is None:
+					rcontent = f'> {reference_message.author.mention}: {short_reply_content(rcontent)}'
 
-			reference_message_list = get_direct_message(reference.message_id, list())
+				webhook_reply_dict = {
+					'wait': True,
+					'content': rcontent,
+					'username': author,
+					'avatar_url': avatar_url,
+					'allowed_mentions': discord.AllowedMentions.none()
+				}
 
 		for forward in direct[message.channel.id]:
 			channel = client.get_channel(forward)
@@ -299,10 +315,7 @@ async def on_message(message):
 
 			# send webhook message reply before than user message
 			if webhook_reply_dict is not None:
-				webhook_message_reply = await webhook.send(
-					**webhook_reply_dict,
-					content = f'> {rauthor.mention}: {webhook_reply_content}'
-				)
+				webhook_message_reply = await webhook.send(**webhook_reply_dict)
 
 				# webhook message reply couldn't be sent
 				if webhook_message_reply is not None:
@@ -312,10 +325,18 @@ async def on_message(message):
 					# insert a new list but instead set delay time to avoid
 					# that webhook message reply won't be deleted
 
+					web_message_reply = WebMessage(webhook_message_reply, reply=reference.message_id)
+
 					if reference.message_id in direct_message:
-						web_message = WebMessage(webhook_message_reply, reply=True)
-						get_direct_message(reference.message_id).append(web_message)
-						direct_message[webhook_message_reply.id] = reference.message_id
+						reference_message_id = reference.message_id
+
+						direct_value = direct_message[reference_message_id]
+						if isinstance(direct_value, int):
+							reference_message_id = direct_value
+							direct_value = direct_message[reference_message_id]
+
+						direct_value.append(web_message_reply)
+						direct_message[webhook_message_reply.id] = reference_message_id
 					else:
 						# delete webhook message reply because it is not being
 						# tracked in any message
@@ -338,7 +359,7 @@ async def on_message(message):
 				# append webhook message reply to that message
 				# because message created that reply
 				if webhook_message_reply is not None:
-					direct_message[message.id].append(WebMessage(webhook_message_reply, reply=True))
+					direct_message[message.id].append(web_message_reply)
 
 				# assign which is original message id in webhook message
 				direct_message[webhook_message.id] = message.id
