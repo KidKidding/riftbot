@@ -87,7 +87,7 @@ async def get_webhook(channel):
 	webhooks = await channel.webhooks()
 
 	for webhook in webhooks:
-		if webhook.name == 'Rift':
+		if webhook.user == client.user:
 			return webhook
 
 	return await channel.create_webhook(name = 'Rift')
