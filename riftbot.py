@@ -19,6 +19,10 @@ seconds = 3600
 # The direct_message cache file name
 CACHE_MESSAGE_NAME = 'cm.dat'
 
+# Indexes used in cache message file to indicate some info
+ID_MESSAGE_IDX = 0
+REPLY_MESSAGE_IDX = 1
+
 # Gif URLs that Discord manually embed as gif
 GIF_REGEX = r'https?://(?:tenor.com/view|c.tenor.com|giphy.com/gifs)/'
 
@@ -45,7 +49,10 @@ lazy_direct_message = (set(), list())
 # we can abstract in a layer to avoid that in other code places have to deal
 # with this issue
 class WebMessage:
-	def __init__(self, *data, reply=False):
+	NO_REPLY = 0
+
+	# reply -> message id to reference, NO_REPLY if there is no
+	def __init__(self, *data, reply=NO_REPLY):
 		self.reply = reply
 
 		if len(data) == 2:
@@ -167,11 +174,17 @@ async def _load_direct_message():
 
 	ids = set()
 	for id, value in data.items():
-		ids.update([int(id)] + value)
+		if not isinstance(value, list):
+			continue
+
+		ids.update([int(id)] + [metadata[ID_MESSAGE_IDX] for metadata in value])
 
 	cache_messages = await fetch_messages(ids)
 
 	for id, value in data.items():
+		if not isinstance(value, list):
+			continue
+
 		# id in json was converted in string
 		# so let's turn into int again
 		id = int(id)
@@ -180,15 +193,22 @@ async def _load_direct_message():
 		if id not in cache_messages:
 			continue
 
+		id_list = list()
+		reply_meta = dict()
+
+		for metadata in value:
+			id_list.append(metadata[ID_MESSAGE_IDX])
+			reply_meta[metadata[ID_MESSAGE_IDX]] = metadata[REPLY_MESSAGE_IDX]
+
 		# get a list of existing webhook messages related to this message
 		# mdi means message id
-		webhook_messages = [cache_messages[mid] for mid in value if mid in cache_messages]
+		webhook_messages = [cache_messages[mid] for mid in id_list if mid in cache_messages]
 
 		direct_message[id] = [
-				WebMessage(webhooks[message.webhook_id], message.id)
-				for message in webhook_messages
-				if message.webhook_id in webhooks
-			]
+			WebMessage(webhooks[message.webhook_id], message.id, reply=reply_meta[message.id])
+			for message in webhook_messages
+			if message.webhook_id in webhooks
+		]
 
 		# link webhook message ids with original message id again
 		for webhook_message in webhook_messages:
@@ -217,8 +237,10 @@ def _save_direct_message():
 			if not isinstance(value, list):
 				continue
 
-			# dump webhook messages into ids list
-			data[id] = [webhook_message.id() for webhook_message in value]
+			# dump webhook messages into metadata [ IDs, replies ]
+			#
+			# alert: these should be ordered as indexes values above
+			data[id] = [[webhook_message.id(), webhook_message.reply] for webhook_message in value]
 
 		json.dump(data, file)
 
@@ -340,7 +362,7 @@ async def on_message_edit(_ignored_, message):
 
 	# update webhook content according to original message
 	for webhook_message in direct_message[message.id]:
-		if webhook_message.reply:
+		if webhook_message.reply is not WebMessage.NO_REPLY:
 			# short the new content
 			short_content = short_reply_content(message.content)
 
