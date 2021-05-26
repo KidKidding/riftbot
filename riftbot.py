@@ -352,7 +352,7 @@ async def on_message_edit(_ignored_, message):
 			resolved_webhook_message = await webhook_message.message()
 			if resolved_webhook_message is not None:
 				resolved_content = resolved_webhook_message.content
-				content = f"> {resolved_content[0:resolved_content.find(':')]}: {short_content}"
+				content = f"{resolved_content[0:resolved_content.find(':')]}: {short_content}"
 			else:
 				content = f'> *error*: {short_content}'
 
