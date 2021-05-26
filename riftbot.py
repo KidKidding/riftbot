@@ -321,9 +321,8 @@ async def on_message(message):
 				if webhook_message_reply is not None:
 					# the point of this is to link another webhook message
 					# into list of some message JUST if that message is being
-					# tracked in direct_message otherwise don't create and
-					# insert a new list but instead set delay time to avoid
-					# that webhook message reply won't be deleted
+					# tracked in direct_message otherwise don't append and
+					# insert a new list
 
 					web_message_reply = WebMessage(webhook_message_reply, reply=reference.message_id)
 
@@ -337,10 +336,6 @@ async def on_message(message):
 
 						direct_value.append(web_message_reply)
 						direct_message[webhook_message_reply.id] = reference_message_id
-					else:
-						# delete webhook message reply because it is not being
-						# tracked in any message
-						await webhook_message_reply.delete(delay=seconds)
 
 			files = [
 				discord.File(
