@@ -5,12 +5,13 @@ import os
 import json
 import re
 import io
-
+import dotenv
 
 client = discord.Client()
 
-# Insert discord token here.
-DISCORDTOKEN = None
+# Get the token from a file called `.env`
+dotenv.load_dotenv()
+DISCORDTOKEN = os.getenv("TOKEN")
 
 # How many seconds before message gets deleted.
 seconds = 3600
