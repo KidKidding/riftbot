@@ -26,6 +26,15 @@ REPLY_MESSAGE_IDX = 1
 # Gif URLs that Discord manually embed as gif
 GIF_REGEX = r'https?://(?:tenor.com/view|c.tenor.com|giphy.com/gifs)/'
 
+# this will match for:
+# - <@USER_ID>
+# - <@!USER_ID>
+# - <#CHANNEL_ID>
+# - <@&ROLE_ID>
+# - <:NAME:ID>
+# - <a:NAME:ID>
+MESSAGE_FORMAT_REGEX = r'<(@!?&?|#|a?:[A-Za-z0-9_~]+:)\d+>'
+
 # Insert here the channels to link.
 # Example: direct[123] = [124, 125]
 # ^ This will copy entries from channel 123 and paste it in 124 and 125.
@@ -135,12 +144,22 @@ def get_reply_direct(id):
 	return None
 
 def short_reply_content(content):
+	expected_size = 60
+
+	# increase expected size if some message format is found
+	# such as pings, emojis, etc
+	#
+	# for instance, emojis will be use 1 space
+	for match in re.finditer(MESSAGE_FORMAT_REGEX, content):
+		# add the length of match
+		expected_size += match.end() - match.start()
+
 	size = len(content)
-	short = content[0 : min(size, 17)]
+	short = content[0 : min(size, expected_size)]
 
 	# add "..." at the end if message is large
-	# than 17 characters
-	return short + '...' if size > 17 else short
+	# than expected characters
+	return short + '...' if size > expected_size else short
 
 async def _load_direct_message():
 	# Restore cache messages from file
