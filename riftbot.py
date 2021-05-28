@@ -329,7 +329,7 @@ async def on_message(message):
 
 				web_reply = get_reply_direct(reference.message_id)
 				if web_reply is None:
-					rcontent = f'> {reference_message.author.mention}: {short_reply_content(rcontent)}'
+					rcontent = f'> **{get_author_name(reference_message.author)}**: {short_reply_content(rcontent)}'
 
 				webhook_reply_dict = {
 					'wait': True,
