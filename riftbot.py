@@ -397,7 +397,13 @@ async def on_message_edit(_ignored_, message):
 
 	# update webhook content according to original message
 	for webhook_message in direct_message[message.id]:
-		if webhook_message.reply is not WebMessage.NO_REPLY:
+		if webhook_message.reply != WebMessage.NO_REPLY:
+			# check if reply id is the message id that is being
+			# editted, otherwise it is the message that replied
+			# the other one
+			if webhook_message.reply != message.id:
+				return
+
 			# short the new content
 			short_content = short_reply_content(message.content)
 
