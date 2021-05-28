@@ -278,7 +278,21 @@ async def on_message(message):
 		return
 
 	if message.channel.id in direct:
-		author = message.author.display_name
+		def get_author_name(author):
+			author_name = author.name
+
+			if author.discriminator != '0000':
+				author_name = f'{author_name}#{author.discriminator}'
+
+			try:
+				author_name = f'{author.nick} ({author})'
+			except:
+				# possibly nick attribute doesn't even exist
+				pass
+
+			return author_name
+
+		author = get_author_name(message.author)
 		avatar_url = message.author.avatar_url
 
 		# get files from message
