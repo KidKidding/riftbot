@@ -278,7 +278,21 @@ async def on_message(message):
 		return
 
 	if message.channel.id in direct:
-		author = message.author.display_name
+		def get_author_name(author):
+			author_name = author.name
+
+			if author.discriminator != '0000':
+				author_name = f'{author_name}#{author.discriminator}'
+
+			try:
+				author_name = f'{author.nick} ({author})'
+			except:
+				# possibly nick attribute doesn't even exist
+				pass
+
+			return author_name
+
+		author = get_author_name(message.author)
 		avatar_url = message.author.avatar_url
 
 		# get files from message
@@ -315,7 +329,7 @@ async def on_message(message):
 
 				web_reply = get_reply_direct(reference.message_id)
 				if web_reply is None:
-					rcontent = f'> {reference_message.author.mention}: {short_reply_content(rcontent)}'
+					rcontent = f'> **{get_author_name(reference_message.author)}**: {short_reply_content(rcontent)}'
 
 				webhook_reply_dict = {
 					'wait': True,
@@ -397,7 +411,13 @@ async def on_message_edit(_ignored_, message):
 
 	# update webhook content according to original message
 	for webhook_message in direct_message[message.id]:
-		if webhook_message.reply is not WebMessage.NO_REPLY:
+		if webhook_message.reply != WebMessage.NO_REPLY:
+			# check if reply id is the message id that is being
+			# editted, otherwise it is the message that replied
+			# the other one
+			if webhook_message.reply != message.id:
+				return
+
 			# short the new content
 			short_content = short_reply_content(message.content)
 
