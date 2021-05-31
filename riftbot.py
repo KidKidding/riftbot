@@ -161,6 +161,31 @@ def short_reply_content(content):
 	# than expected characters
 	return short + '...' if size > expected_size else short
 
+def process_emojis(text, guild):
+	'''
+	Replaces the emojis of the form :name: in the string text with emojis of the form <:name:\d{18}> or <a:name:\d{18}>.
+	Note: Only works for emojis with 18-digit IDs since I thought that emojis can only have 18-digit IDs :sadcat:
+	'''
+	for name, emoji in ((f':{x.name}:', str(x)) for x in guild.emojis):
+		start_index = 0
+		name_index = text.find(name, start_index)
+		while name_index != -1:
+			if (
+				re.fullmatch(
+					'<' + name + r'\d{18}>',
+					text[name_index - 1:name_index + len(name) + 19]) or
+				re.fullmatch(
+					'<a' + name + r'\d{18}>',
+					text[name_index - 2:name_index + len(name) + 19])
+			):
+				start_index = name_index + len(name) + 19
+			else:
+				text = text[:name_index] + text[name_index:].replace(name, emoji, 1)
+				start_index = name_index + len(emoji)
+			name_index = text.find(name, start_index)
+
+	return text
+
 async def _load_direct_message():
 	# Restore cache messages from file
 	if not os.path.isfile(CACHE_MESSAGE_NAME):
@@ -246,7 +271,6 @@ async def _load_direct_message():
 		asyncio.ensure_future(task())
 	lazy_direct_message[1].clear()
 
-
 def _save_direct_message():
 	# Save cache messages into file
 	if len(direct_message) == 0:
@@ -301,7 +325,7 @@ async def on_message(message):
 		# cache webhook message initialization
 		webhook_message_dict = {
 			'wait': True,
-			'content': message.content,
+			'content': process_emojis(message.content, message.guild),
 			'username': author,
 			'avatar_url': avatar_url,
 			'embeds': [] if check_gif_url(message.content) else message.embeds,
@@ -434,12 +458,12 @@ async def on_message_edit(_ignored_, message):
 				content = f'> *error*: {short_content}'
 
 			await webhook_message.edit(
-				content = content,
+				content = process_emojis(content, message.guild),
 				allowed_mentions = discord.AllowedMentions.none()
 			)
 		else:
 			await webhook_message.edit(
-				content = message.content,
+				content = process_emojis(message.content, message.guild),
 				embeds = [] if check_gif_url(message.content) else message.embeds
 			)
 
