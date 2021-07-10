@@ -146,6 +146,9 @@ def get_reply_direct(id):
 def short_reply_content(content):
 	expected_size = 60
 
+	# make linear message instead
+	content = content.replace('\n', ' ')
+
 	# increase expected size if some message format is found
 	# such as pings, emojis, etc
 	#
